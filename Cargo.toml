@@ -1,0 +1,9 @@
+[package]
+name = "aden"
+version = "0.1.0"
+authors = ["Nick"]
+
+[profile.release]
+lto = "true"
+
+[dependencies]
