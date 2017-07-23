@@ -24,7 +24,7 @@ impl Timer {
 		}
 		else {
 			let elapsed: Duration = self.start.elapsed();
-			let time_elapsed: f64 = elapsed.as_secs() as f64 +
+			let time_elapsed: f64 = (elapsed.as_secs() * 1000) as f64 +
 				elapsed.subsec_nanos() as f64 * 0.000001;
 				// elapsed.subsec_nanos() as f64 * 0.000000001;
 			Ok(time_elapsed)

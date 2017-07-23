@@ -143,7 +143,8 @@ impl Server {
 				req_raw_header.push(buff_u8_1[0]);
 			},
 			Err(e) => {
-				println!("{} - 401 - <null> `{}`", ip, e.to_string());
+				// println!("{} - 401 - <null> `{}`", ip, e.to_string());
+				println!("{} - 401 - <null> (Timeout) {}ms", ip, timer.elapsed().unwrap() as f32);
 				client.shutdown(net::Shutdown::Both);
 				return;
 			}
@@ -155,7 +156,7 @@ impl Server {
 				Err(e) => {
 					// client.write_all("HTTP/1.1 408 Request Timeout\r\nServer: Aden 0.1.0\r\n\r\nClient request timed out.\r\n".as_bytes());
 					if req_raw_header.len() == 0 {
-						println!("{} - 408 - <null>", ip);
+						println!("{} - 408 - <null> {}ms", ip, timer.elapsed().unwrap() as f32);
 						client.shutdown(net::Shutdown::Both);
 						return;
 					}
@@ -183,7 +184,7 @@ impl Server {
 		let mut req: Request = match Request::new(&req_raw_header) {
 			Ok(r) => r,
 			Err(e) => {
-				println!("{} - 401 - <null>", ip);
+				println!("{} - 401 - <null> (Bad request) {}ms", ip, timer.elapsed().unwrap() as f32);
 				return;
 			}
 		};
