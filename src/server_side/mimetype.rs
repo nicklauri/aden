@@ -25,7 +25,6 @@ impl Mimetype {
 		let mut mimetypes: Vec<MimetypeData> = vec![];
 		let root_path = utils::get_root_path();
 
-
 		// Process custom mimetype first!
 		// For safety, Use std::path::PathBuf to create path to compatible to cross platform.
 		let custom_mimetype_pathbuf = path::PathBuf::from(utils::to_root_path("/config/custom_mimetype.mt", &root_path));

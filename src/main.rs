@@ -15,12 +15,17 @@
 
 use std::io::Read;
 
+mod version;
 mod server_side;
 mod client_side;
 
 use server_side::config::Configuration;
 
 fn main() {
+	println!("KProject Aden Server version {}\nCopyright (c) by {} <{}> {}\nWritten in Rust <3",
+		version::VERSION, version::AUTHOR_NAME, version::AUTHOR_EMAIL,
+		version::PRODUCT_RELEASE_YEAR);
+
 	let config = match Configuration::new() {
 		Ok(c) => c,
 		Err(e) => {
@@ -39,12 +44,10 @@ fn main() {
 		}
 	};
 
-	println!("The server is running @ {}:{} .", server_address, server_port);
+	println!("The server is running @ {}:{} . Type `quit` or Ctrl-C to quit the server.", server_address, server_port);
 	std::thread::spawn(move || {
 		server.start_with_thread(&config);
 	});
-
-	println!("press enter or Ctrl-C to quit.");
 
 	// Need module command.
 	loop {

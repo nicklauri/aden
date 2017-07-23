@@ -202,7 +202,7 @@ impl Server {
 			req_path = utils::to_root_path((home_dir_err + "/403.html").as_str(), &root_path);
 			res.add_content_from_file(req_path.to_string());
 			res.set_response_text(Some(String::from("1.1")), Some(403), Some(String::from("Forbinden")));
-			res.add_header(String::from("Host"), String::from("KPRS 0.1"));
+			res.add_header(String::from("Host"), String::from("Aden 0.1"));
 			res.add_header(String::from("Content-Type"), String::from("text/html"));
 		}
 		else if req_path.ends_with(r"\") {
@@ -211,14 +211,14 @@ impl Server {
 				Ok(_) => {
 					req_path = new_req_path;
 					res.set_response_text(Some(String::from("1.1")), Some(200), Some(String::from("OK")));
-					res.add_header(String::from("Host"), String::from("KPRS 0.1"));
+					res.add_header(String::from("Host"), String::from("Aden 0.1"));
 					res.add_header(String::from("Content-Type"), mimetype.get_mimetype_or(&req_path, "text/html"));
 				},
 				Err(e) => {
 					req_path = utils::to_root_path((home_dir_err + "/404.html").as_str(), &root_path);
 					res.add_content_from_file(req_path.to_string());
 					res.set_response_text(Some(String::from("1.1")), Some(404), Some(String::from("Not Found")));
-					res.add_header(String::from("Host"), String::from("KPRS 0.1"));
+					res.add_header(String::from("Host"), String::from("Aden 0.1"));
 					res.add_header(String::from("Content-Type"), String::from("text/html"));
 				}
 			}
@@ -228,7 +228,7 @@ impl Server {
 			match res.add_content_from_file(req_path.to_owned()) {
 				Ok(_) => {
 					res.set_response_text(Some(String::from("1.1")), Some(200), Some(String::from("OK")));
-					res.add_header(String::from("Host"), String::from("KPRS 0.1"));
+					res.add_header(String::from("Host"), String::from("Aden 0.1"));
 					res.add_header(String::from("Content-Type"), mimetype.get_mimetype_or(&req_path, "text/html"));
 				},
 				Err(e) => {
@@ -236,7 +236,7 @@ impl Server {
 					req_path = utils::to_root_path((home_dir_err + "/404.html").as_str(), &root_path);
 					res.add_content_from_file(req_path.to_string());
 					res.set_response_text(Some(String::from("1.1")), Some(404), Some(String::from("Not Found")));
-					res.add_header(String::from("Host"), String::from("KPRS 0.1"));
+					res.add_header(String::from("Host"), String::from("Aden 0.1"));
 					res.add_header(String::from("Content-Type"), String::from("text/html"));
 				}
 			}
