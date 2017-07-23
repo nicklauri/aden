@@ -29,6 +29,7 @@ This version only support static sites, method GET + POST and couple HTTP header
 5. Run Aden and enjoy!
 
 ### Future features:
+ - Log manage and color output (console).
  - Alias path: long, complex path to simple path.
  - Linux support ;) (I'm too poor to buy a Mac, so I can't support Mac).
  - Advanced access permission: ban IP, restrict access with specific HTTP header/contents.
