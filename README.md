@@ -1,4 +1,4 @@
-# KProject Aden Server version 0.1.0
+# KProject Aden Server version 0.1.1
 
 Aden is a simple HTTP server written in [Rust programming language](https://www.rust-lang.org) :heart:.
 This version only support static sites, method GET + POST and couple HTTP headers.
@@ -12,7 +12,9 @@ This version only support static sites, method GET + POST and couple HTTP header
 
 ### Problems:
  - System will crash if the request file is too big (`Accept-Ranges` has not implemented yet).
- - Auto abort if size of request (header+content) equals to 1000 bytes (I'm trying to find solution D: )
+
+### Solved:
+ - Auto abort if size of request (header+content) equals to 1000 bytes. (yay!)
 
 ### Install:
 1. Install Rust from https://www.rust-lang.org.
