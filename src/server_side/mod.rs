@@ -32,21 +32,6 @@ pub struct Server {
 }
 
 impl Server {
-	pub fn new_default() -> Result<Server, Error> {
-		match TcpListener::bind("127.0.0.1:8080") {
-			Ok(tcplistener) => Ok(Server{
-				address: "127.0.0.1".to_string(),
-				port: "8080".to_string(),
-				server: tcplistener,
-				mimetype: match Mimetype::new() {
-					Ok(mt) => mt,
-					Err(e) => return Err(e)
-				}
-			}),
-			Err(e) => Err(e)
-		}
-	}
-
 	pub fn new(server_address: &str, server_port: &str) -> Result<Server, Error> {
 		let ip_addrs: Vec<IpAddr> = match (server_address, 0).to_socket_addrs()
 			.map(|iter| iter.map(|socket_address| socket_address.ip()).collect()) {
@@ -78,9 +63,9 @@ impl Server {
 		}
 	}
 
-	pub fn set_nonblocking(&self, mode: bool) -> Result<(), io::Error> {
-		self.server.set_nonblocking(mode)
-	}
+	// pub fn set_nonblocking(&self, mode: bool) -> Result<(), io::Error> {
+	// 	self.server.set_nonblocking(mode)
+	// }
 
 	pub fn start_with_thread(self, config: &Configuration) {
 		let max_alive_thread: u32 = match config.get_value_or("max_alive_thread", "10").parse() {
@@ -113,6 +98,7 @@ impl Server {
 	}
 
 	fn handle_client(client: &mut TcpStream, ip: String, mimetype: Mimetype, config: Configuration) {
+
 		// TODO: use client_side module, handle request, send response
 		// set read time-out for client
 		let tcp_read_timeout = Duration::from_millis(1000);
@@ -123,20 +109,59 @@ impl Server {
 		let forbinden_dirs_raw = config.get_value_or("forbinden_dir", "");
 		let forbinden_dirs = forbinden_dirs_raw.split(";").collect::<Vec<&str>>();
 		let timer = utils::Timer::new();
+		let tcp_read_timeout: Option<Duration>;
+		let tcpstream_nonblocking = match config.get_value_or("tcpstream_nonblocking", "false").as_str() {
+			"true" => true,
+			_      => false
+		};
 
-		client.set_read_timeout(None);
+		// client.set_nonblocking(tcpstream_nonblocking);
+
+		match config.get_value_or("tcp_read_timeout", "0").parse::<u64>() {
+			Ok(millis) => {
+				if millis != 0 {
+					tcp_read_timeout = Some(Duration::from_millis(millis));
+				}
+				else {
+					tcp_read_timeout = None;
+				}
+			},
+			Err(_) => tcp_read_timeout = None
+		};
+
+		client.set_read_timeout(tcp_read_timeout);
 		// println!("Receiving data ...");
 
 		let mut req_raw_header: Vec<u8> = vec![];
+		let mut buff_u8_1 = [0; 1];
 		let mut buff_u8 = [0; 1000];
 		let break_loop = false;
+
+		match client.read(&mut buff_u8_1[..]) {
+			Ok(_) => {
+				client.set_nonblocking(tcpstream_nonblocking);
+				req_raw_header.push(buff_u8_1[0]);
+			},
+			Err(e) => {
+				println!("{} - 401 - <null> `{}`", ip, e.to_string());
+				client.shutdown(net::Shutdown::Both);
+				return;
+			}
+		}
+
 		loop {
 			let req_content_len = match client.read(&mut buff_u8[..]) {
 				Ok(len) => len,
 				Err(e) => {
-					client.shutdown(net::Shutdown::Both);
-					println!("client shutdowned by: {:?}", e.to_string());
-					return;
+					// client.write_all("HTTP/1.1 408 Request Timeout\r\nServer: Aden 0.1.0\r\n\r\nClient request timed out.\r\n".as_bytes());
+					if req_raw_header.len() == 0 {
+						println!("{} - 408 - <null>", ip);
+						client.shutdown(net::Shutdown::Both);
+						return;
+					}
+					else {
+						break;
+					}
 				}
 			};
 
@@ -158,6 +183,7 @@ impl Server {
 		let mut req: Request = match Request::new(&req_raw_header) {
 			Ok(r) => r,
 			Err(e) => {
+				println!("{} - 401 - <null>", ip);
 				return;
 			}
 		};
@@ -196,13 +222,12 @@ impl Server {
 				forbinden = true;
 			}
 		}
-		
 
 		if forbinden {
 			req_path = utils::to_root_path((home_dir_err + "/403.html").as_str(), &root_path);
 			res.add_content_from_file(req_path.to_string());
 			res.set_response_text(Some(String::from("1.1")), Some(403), Some(String::from("Forbinden")));
-			res.add_header(String::from("Host"), String::from("Aden 0.1"));
+			res.add_header(String::from("Server"), String::from("Aden 0.1"));
 			res.add_header(String::from("Content-Type"), String::from("text/html"));
 		}
 		else if req_path.ends_with(r"\") {
@@ -211,14 +236,14 @@ impl Server {
 				Ok(_) => {
 					req_path = new_req_path;
 					res.set_response_text(Some(String::from("1.1")), Some(200), Some(String::from("OK")));
-					res.add_header(String::from("Host"), String::from("Aden 0.1"));
+					res.add_header(String::from("Server"), String::from("Aden 0.1"));
 					res.add_header(String::from("Content-Type"), mimetype.get_mimetype_or(&req_path, "text/html"));
 				},
 				Err(e) => {
 					req_path = utils::to_root_path((home_dir_err + "/404.html").as_str(), &root_path);
 					res.add_content_from_file(req_path.to_string());
 					res.set_response_text(Some(String::from("1.1")), Some(404), Some(String::from("Not Found")));
-					res.add_header(String::from("Host"), String::from("Aden 0.1"));
+					res.add_header(String::from("Server"), String::from("Aden 0.1"));
 					res.add_header(String::from("Content-Type"), String::from("text/html"));
 				}
 			}
@@ -228,7 +253,7 @@ impl Server {
 			match res.add_content_from_file(req_path.to_owned()) {
 				Ok(_) => {
 					res.set_response_text(Some(String::from("1.1")), Some(200), Some(String::from("OK")));
-					res.add_header(String::from("Host"), String::from("Aden 0.1"));
+					res.add_header(String::from("Server"), String::from("Aden 0.1"));
 					res.add_header(String::from("Content-Type"), mimetype.get_mimetype_or(&req_path, "text/html"));
 				},
 				Err(e) => {
@@ -236,7 +261,7 @@ impl Server {
 					req_path = utils::to_root_path((home_dir_err + "/404.html").as_str(), &root_path);
 					res.add_content_from_file(req_path.to_string());
 					res.set_response_text(Some(String::from("1.1")), Some(404), Some(String::from("Not Found")));
-					res.add_header(String::from("Host"), String::from("Aden 0.1"));
+					res.add_header(String::from("Server"), String::from("Aden 0.1"));
 					res.add_header(String::from("Content-Type"), String::from("text/html"));
 				}
 			}
@@ -251,6 +276,8 @@ impl Server {
 		};
 
 		client.write_all(res_built_hd.as_bytes());
+
+		// FIx this res.build_content if file size is too big, crash system.
 		client.write_all(res.build_content());
 		println!("{} - {} - {} ({} ms)", ip, res.status_code, req.req_path, timer.elapsed().unwrap() as f32);
 

@@ -4,6 +4,6 @@ version = "0.1.0"
 authors = ["Nick"]
 
 [profile.release]
-lto = "true"
+lto = true
 
 [dependencies]
