@@ -10,6 +10,7 @@ pub mod status;
 
 use std::io;
 use std::io::{Error, ErrorKind};
+use std::io::{Write, BufWriter};
 use std::io::prelude::*;
 use std::net;
 use std::net::{TcpListener, TcpStream};
@@ -276,12 +277,30 @@ impl Server {
 			}
 		};
 
+		client.set_nonblocking(false);
 		client.write_all(res_built_hd.as_bytes());
 
-		// FIx this res.build_content if file size is too big, crash system.
-		client.write_all(res.build_content());
-		println!("{} - {} - {} ({} ms)", ip, res.status_code, req.req_path, timer.elapsed().unwrap() as f32);
+		// Fix this res.build_content if file size is too big, crash system.
+		// client.write_all(res.build_content());
 
+		if res.is_big_file() {
+			let mut client_bufwriter = BufWriter::new(client);
+			loop {
+				// println!("Big file!!!");
+				let (content, remaining_bytes) = res.build_content();
+				client_bufwriter.write(content);
+				client_bufwriter.flush();
+				if remaining_bytes == 0 {
+					break;
+				}
+			}
+		}
+		else {
+			let (content, _) = res.build_content();
+			client.write_all(content);
+		}
+
+		println!("{} - {} - {} ({} ms)", ip, res.get_status_code(), req.req_path, timer.elapsed().unwrap() as f32);
 	}
 
 	pub fn shutdown(self) {}

@@ -8,11 +8,17 @@ use std::io::{Error, ErrorKind};
 
 pub struct Response {
 	http_ver: String,
-	pub status_code: u16,
+	status_code: u16,
 	status_msg: String,
 	header: Vec<HeaderData>,
 	content: Vec<u8>,
-	content_length: usize,
+	content_length: u64,
+
+	file_path: String,
+	bufreader: Option<BufReader<File>>,
+	big_file_read_buffer_size: u64,	// file > 5MiB (5000, customized in /config) will be treated as a big file ;)
+	big_file_bytes_read: u64,
+	is_big_file: bool,
 	is_ready: bool
 }
 
@@ -30,6 +36,11 @@ impl Response {
 			header: vec![],
 			content: vec![],
 			content_length: 0,
+			file_path: "".to_string(),
+			bufreader: None,
+			big_file_read_buffer_size: 0,
+			big_file_bytes_read: 0,
+			is_big_file: false,
 			is_ready: false
 		}
 	}
@@ -81,20 +92,24 @@ impl Response {
 	// Enter file path!
 	pub fn add_content_from_string(&mut self, content: String) {
 		if !content.is_empty() {
-			self.content_length = content.len();
+			self.content_length = content.len() as u64;
 			self.content = content.as_bytes().to_vec();
 		}
 	}
 
 	pub fn add_content_from_file(&mut self, filepath: String) -> Result<(), Error> {
 		let fp: File = File::open(filepath.to_owned())?;
-		let mut fp_bufreader = BufReader::new(&fp);
-		let file_size = metadata(filepath).unwrap().len();
-		let mut content: Vec<u8> = vec![0; file_size as usize];
-		let content_length: usize = fp_bufreader.read(&mut content)?;
+		let mut fp_bufreader = BufReader::new(fp);
+		let file_size = metadata(&filepath).unwrap().len();
 
-		self.content = content;
-		self.content_length = content_length;
+		// I'll fix this to be able to customized in /config/config.conf
+		if file_size > 5_000_000 {
+			self.is_big_file = true;
+		}
+
+		self.bufreader = Some(fp_bufreader);
+		self.file_path = filepath;
+		self.content_length = file_size;
 		Ok(())
 	}
 
@@ -135,7 +150,65 @@ impl Response {
 		Ok(res)
 	}
 
-	pub fn build_content(&self) -> &[u8] {
-		self.content.as_slice()
+	// Return: contents + size of the rest of contents.
+	pub fn build_content(&mut self) -> (&[u8], u64) {
+		if self.is_big_file {
+			let start_reading_at = self.big_file_bytes_read;
+
+			// Destroy old contents, prepare for new contents.
+			// self.content = vec![];
+			
+			// Buffer size must be over 2MiB (~ my own internet speed), for not calling this function so many times.
+			if self.big_file_read_buffer_size < 1_000_000 {
+				// self.big_file_read_buffer_size = 2_000_000;
+				self.big_file_read_buffer_size = 5_000_000;
+			}
+
+			let mut u8_buff: Vec<u8>;
+			let mut numbytes: u64;
+			if self.content_length - self.big_file_bytes_read < self.big_file_read_buffer_size {
+				numbytes = self.content_length - self.big_file_bytes_read;
+				u8_buff = vec![0; numbytes as usize];
+			}
+			else {
+				numbytes = self.big_file_read_buffer_size;
+				u8_buff = vec![0;  numbytes as usize];
+			}
+
+			if let Some(ref mut br) = self.bufreader {
+				if let Ok(_) = br.read_exact(&mut u8_buff[..]) {
+					self.big_file_bytes_read += numbytes as u64;
+				}
+			}
+
+			// println!("bytes read: {}", self.big_file_bytes_read);
+
+			self.content = u8_buff;
+
+			// Ok((self.content.as_slice(), self.content_length - self.big_file_bytes_read))
+			(self.content.as_slice(), self.content_length - self.big_file_bytes_read)
+		}
+		else {
+			let mut u8_buff: Vec<u8> = vec![0; self.content_length as usize];
+			if let Some(ref mut br) = self.bufreader {
+				br.read(&mut u8_buff);
+				self.content = u8_buff;
+			}
+
+			(self.content.as_slice(), 0)
+		}
+
+	}
+
+	pub fn is_big_file(&self) -> bool {
+		self.is_big_file
+	}
+
+	pub fn get_status_code(&self) -> u16 {
+		self.status_code
+	}
+
+	pub fn get_content_length(&self) -> u64 {
+		self.content_length
 	}
 }
