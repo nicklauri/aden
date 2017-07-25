@@ -1,4 +1,4 @@
-# KProject Aden Server version 0.1.1
+# KProject Aden Server version 0.1.2
 
 Aden is a simple HTTP server written in [Rust programming language](https://www.rust-lang.org) :heart:.
 This version only support static sites, method GET + POST and couple HTTP headers.
@@ -11,12 +11,14 @@ This version only support static sites, method GET + POST and couple HTTP header
  - Open source, easy to edit and build your own Aden (License GPLv3), read the code, learn Rust and HTTP networking.
 
 ### Problems:
- - System will crash if the request file is too big (`Accept-Ranges` has not implemented yet).
+ - Partial-contents has not implemented yet.
  - All methods and headers are unsupported :( I'm working on it.
  - Codes seem bad, I'll split to new request/error handling.
+ - Fixed crash system while transfering large files but still can't customize the buffer_size (I love everything is portable and customizable).
 
 ### Solved:
  - Auto abort if size of request (header+content) equals to 1000 bytes. (yay!)
+ - System will crash if the request file is too big.
 
 ### Install:
 1. Install Rust from https://www.rust-lang.org.
