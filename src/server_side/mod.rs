@@ -12,6 +12,7 @@ use std::io;
 use std::io::{Error, ErrorKind};
 use std::io::{Write, BufWriter};
 use std::io::prelude::*;
+use std::fs::metadata;
 use std::net;
 use std::net::{TcpListener, TcpStream};
 use std::net::{ToSocketAddrs, IpAddr};
@@ -209,6 +210,7 @@ impl Server {
 		let real_req_path = req_path_split_query_string[0];
 		let query_string: &str;
 		if req_path_split_query_string.len() > 1 {
+			// For future use.
 			query_string = req_path_split_query_string[1];
 		}
 		else {
@@ -225,28 +227,45 @@ impl Server {
 			}
 		}
 
+		let req_path_isdir = match metadata(&req_path) {
+			Ok(mtdat) => mtdat.is_dir(),
+			Err(_) => false
+		};
+
 		if forbinden {
 			req_path = utils::to_root_path((home_dir_err + "/403.html").as_str(), &root_path);
 			res.add_content_from_file(req_path.to_string());
-			res.set_response_text(Some(String::from("1.1")), Some(403), Some(String::from("Forbinden")));
-			res.add_header(String::from("Server"), String::from("Aden 0.1"));
-			res.add_header(String::from("Content-Type"), String::from("text/html"));
+			res.set_response_text(Some("1.1"), Some(403), Some("Forbinden"));
+			res.add_header("Server", "Aden 0.1");
+			res.add_header("Content-Type", "text/html");
 		}
-		else if req_path.ends_with(r"\") {
-			let new_req_path = req_path + default_index_file.as_str();
+		// else if req_path.ends_with(r"\") {
+		else if req_path_isdir {
+			let new_req_path = if req_path.ends_with('\\') { req_path.to_owned() + default_index_file.as_str()} 
+				else {req_path.to_owned() + "\\" + default_index_file.as_str()};
+
 			match res.add_content_from_file(new_req_path.to_owned()) {
 				Ok(_) => {
+					if !req_path.to_owned().ends_with('\\') && !req.req_path.ends_with("/") {
+						let new_location = req.req_path.to_owned() + "/";
+						println!("new_location: {}", new_location);
+						res.set_response_text(Some("1.1"), Some(301), Some("Moved Permanently"));
+						res.add_header("Location", new_location.as_str());
+					}
+					else {
+						res.set_response_text(Some("1.1"), Some(200), Some("OK"));
+					}
+
+					res.add_header("Server", "Aden 0.1");
+					res.add_header("Content-Type", mimetype.get_mimetype_or(&req_path, "text/html").as_str());
 					req_path = new_req_path;
-					res.set_response_text(Some(String::from("1.1")), Some(200), Some(String::from("OK")));
-					res.add_header(String::from("Server"), String::from("Aden 0.1"));
-					res.add_header(String::from("Content-Type"), mimetype.get_mimetype_or(&req_path, "text/html"));
 				},
 				Err(e) => {
 					req_path = utils::to_root_path((home_dir_err + "/404.html").as_str(), &root_path);
 					res.add_content_from_file(req_path.to_string());
-					res.set_response_text(Some(String::from("1.1")), Some(404), Some(String::from("Not Found")));
-					res.add_header(String::from("Server"), String::from("Aden 0.1"));
-					res.add_header(String::from("Content-Type"), String::from("text/html"));
+					res.set_response_text(Some("1.1"), Some(404), Some("Not Found"));
+					res.add_header("Server", "Aden 0.1");
+					res.add_header("Content-Type", "text/html");
 				}
 			}
 		}
@@ -254,17 +273,17 @@ impl Server {
 			// must check alias path and convert before send response
 			match res.add_content_from_file(req_path.to_owned()) {
 				Ok(_) => {
-					res.set_response_text(Some(String::from("1.1")), Some(200), Some(String::from("OK")));
-					res.add_header(String::from("Server"), String::from("Aden 0.1"));
-					res.add_header(String::from("Content-Type"), mimetype.get_mimetype_or(&req_path, "text/html"));
+					res.set_response_text(Some("1.1"), Some(200), Some("OK"));
+					res.add_header("Server", "Aden 0.1");
+					res.add_header("Content-Type", mimetype.get_mimetype_or(&req_path, "text/html").as_str());
 				},
 				Err(e) => {
 					// println!("E: Can't response because: {}", e.to_string()); 
 					req_path = utils::to_root_path((home_dir_err + "/404.html").as_str(), &root_path);
 					res.add_content_from_file(req_path.to_string());
-					res.set_response_text(Some(String::from("1.1")), Some(404), Some(String::from("Not Found")));
-					res.add_header(String::from("Server"), String::from("Aden 0.1"));
-					res.add_header(String::from("Content-Type"), String::from("text/html"));
+					res.set_response_text(Some("1.1"), Some(404), Some("Not Found"));
+					res.add_header("Server", "Aden 0.1");
+					res.add_header("Content-Type", "text/html");
 				}
 			}
 		}
@@ -281,23 +300,14 @@ impl Server {
 		client.write_all(res_built_hd.as_bytes());
 
 		// Fix this res.build_content if file size is too big, crash system.
-		// client.write_all(res.build_content());
-
-		if res.is_big_file() {
-			let mut client_bufwriter = BufWriter::new(client);
-			loop {
-				// println!("Big file!!!");
-				let (content, remaining_bytes) = res.build_content();
-				client_bufwriter.write(content);
-				client_bufwriter.flush();
-				if remaining_bytes == 0 {
-					break;
-				}
+		let mut client_bufwriter = BufWriter::new(client);
+		loop {
+			let (content, remaining_bytes) = res.build_content();
+			client_bufwriter.write(content);
+			client_bufwriter.flush();
+			if remaining_bytes == 0 {
+				break;
 			}
-		}
-		else {
-			let (content, _) = res.build_content();
-			client.write_all(content);
 		}
 
 		println!("{} - {} - {} ({} ms)", ip, res.get_status_code(), req.req_path, timer.elapsed().unwrap() as f32);
