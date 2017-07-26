@@ -2,5 +2,5 @@ target/
 **/*.rs.bk
 *.exe
 www/
-config/*
+config/
 test*
