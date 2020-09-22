@@ -7,7 +7,7 @@ This version only support static sites, method GET + POST and couple HTTP header
 
 ### Features:
  - Fast and light for static web sites.
- - Custom the server confortably via config/ such as: home directory, default index file, forbinden files or directories, server bind host name and port, etc.
+ - Custom the server confortably via config/ such as: home directory, default index file, forbidden files or directories, server bind host name and port, etc.
  - Open source, easy to edit and build your own Aden (License GPLv3), read the code, learn Rust and HTTP networking.
 
 ### Problems:
